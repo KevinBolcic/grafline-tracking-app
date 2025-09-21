@@ -1,0 +1,50 @@
+databases:
+  - name: grafline-postgres
+    plan: free
+
+services:
+  # Backend API service
+  - type: web
+    name: grafline-tracking-api
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: grafline-postgres
+          property: connectionString
+
+  # Frontend static site
+  - type: web
+    name: grafline-tracking-frontend
+    env: static
+    plan: free
+    rootDir: .
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+
+  # Cron job for polling email
+  - type: cron
+    name: grafline-email-poller
+    env: python
+    plan: free
+    rootDir: backend
+    schedule: "*/10 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/email_poller.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: grafline-postgres
+          property: connectionString
+      - key: IMAP_HOST
+        sync: false
+      - key: IMAP_PORT
+        sync: false
+      - key: IMAP_USERNAME
+        sync: false
+      - key: IMAP_PASSWORD
+        sync: false
